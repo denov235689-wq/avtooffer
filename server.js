@@ -168,8 +168,9 @@ async function tick() {
     set('base_gift', 1);
   }
 }
+let lastErr = '';
 (async function loop() {
-  try { await tick(); } catch (e) { console.error('tick', e.message); }
+  try { await tick(); } catch (e) { console.error('tick', e.message); if (e.message !== lastErr) { lastErr = e.message; notifyAdmins('⚠️ Xato: ' + e.message); } }
   setTimeout(loop, Math.max(3, +get('poll_seconds')) * 1000);
 })();
 
