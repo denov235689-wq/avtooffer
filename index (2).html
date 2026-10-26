@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="uz"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Gift Bot</title>
+<style>
+:root{--bg:#14151a;--card:#1f2028;--tx:#f2f2f5;--mut:#8b8d99;--ac:#6c7bff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font-family:Montserrat,system-ui,sans-serif;padding:16px}
+.card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px}
+input{width:100%;background:#14151a;border:1px solid #33343f;color:var(--tx);border-radius:10px;padding:10px;margin:4px 0;font-size:15px}
+button{background:var(--ac);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-size:14px;cursor:pointer}
+button.g{background:#33343f}.row{display:flex;gap:8px;align-items:center;justify-content:space-between;margin:6px 0}
+.mut{color:var(--mut);font-size:13px}h3{margin:0 0 8px}.bad{color:#ff6b6b}.log{font-size:12px;color:var(--mut);margin:3px 0}
+</style></head><body>
+<div id="login" class="card"><h3>🔐 Admin kodi</h3>
+<input id="code" type="password" inputmode="numeric" placeholder="Kod">
+<button onclick="login()">Kirish</button><div id="err" class="bad"></div></div>
+<div id="main" style="display:none"></div>
+<script>
+let T=localStorage.getItem('t')||'';
+const $=id=>document.getElementById(id);
+async function api(p,m='GET',b){
+  const r=await fetch('/api/'+p,{method:m,headers:{'content-type':'application/json','x-token':T},body:b?JSON.stringify(b):undefined});
+  if(r.status===401&&p!=='login'){T='';localStorage.removeItem('t');show(false);throw 0}
+  return r.json();
+}
+async function login(){
+  const r=await api('login','POST',{code:$('code').value});
+  if(r.token){T=r.token;localStorage.setItem('t',T);show(true);load()}else $('err').textContent=r.error||'Xato'
+}
+function show(ok){$('login').style.display=ok?'none':'block';$('main').style.display=ok?'block':'none'}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const F=[['offer_price','Offer narxi ⭐'],['max_gift_price','Maks. gift narxi ⭐'],['daily_limit','Kunlik limit ⭐'],['target_username','Gift qabul qiluvchi username'],['poll_seconds','Tekshiruv (soniya)']];
+const SW=[['running','Ishlayapti'],['auto_offer','Avto-offer'],['auto_gift','Avto-gift'],['limited_only','Faqat limited']];
+async function load(){
+  let s;try{s=await api('state')}catch{return}
+  const st=s.settings;
+  $('main').innerHTML=
+  `<div class="card"><h3>📊 Holat</h3><div class="mut">${s.dry?'TEST rejim (stars sarflanmaydi)':'JONLI rejim'}</div>
+   <div>Bugun sarf: <b>${s.spent}/${st.daily_limit}⭐</b></div></div>
+  <div class="card"><h3>⚙️ Sozlamalar</h3>
+  ${SW.map(([k,l])=>`<div class="row"><span>${l}</span><button class="${st[k]==='1'?'':'g'}" onclick="sw('${k}',${st[k]==='1'?0:1})">${st[k]==='1'?'Yoqilgan':'O‘chiq'}</button></div>`).join('')}
+  ${F.map(([k,l])=>`<div class="mut">${l}</div><input id="f_${k}" value="${esc(st[k])}" onchange="sw('${k}',this.value)">`).join('')}</div>
+  <div class="card"><h3>👤 Akkauntlar (${s.accounts.length})</h3>
+  ${s.accounts.map(a=>`<div class="row"><span>${esc(a.label)} ${a.enabled?'🟢':'⚪'}</span><span><button class="g" onclick="tg(${a.id})">On/Off</button> <button class="g" onclick="del(${a.id})">🗑</button></span></div>`).join('')}
+  <input id="al" placeholder="Nom"><input id="at" placeholder="Token"><button onclick="add()">Qo‘shish</button></div>
+  <div class="card"><h3>🧾 Oxirgi amallar</h3>${s.log.map(l=>`<div class="log ${l.ok?'':'bad'}">${new Date(l.ts).toLocaleTimeString()} · ${l.kind} · ${esc(l.detail)} ${l.stars?l.stars+'⭐':''}</div>`).join('')||'<div class="mut">Hali yo‘q</div>'}</div>`;
+}
+async function sw(k,v){await api('settings','POST',{key:k,value:v});load()}
+async function add(){await api('accounts','POST',{label:$('al').value,token:$('at').value});load()}
+async function tg(i){await api('accounts/'+i+'/toggle','POST');load()}
+async function del(i){if(confirm('O‘chirilsinmi?')){await api('accounts/'+i,'DELETE');load()}}
+if(T){show(true);load()}
+setInterval(()=>{if(T&&document.activeElement.tagName!=='INPUT')load()},15000);
+</script></body></html>
